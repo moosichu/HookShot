@@ -183,16 +183,15 @@ function Player:Draw()
     -- Draw Player
     do
         local screen_pos = world.ToScreen(self.position)
-        love.graphics.rectangle('fill', screen_pos.x - 5, screen_pos.y - 5, 10, 10)
+        love.graphics.rectangle('fill', screen_pos.x - 5, screen_pos.y - 5, 15, 15)
     end
 
     -- Draw Player Hook
     do
         local draw_hook_position = self.hookshot_position
         local screen_pos = world.ToScreen(draw_hook_position)
-        local hook_radius = 2.5
+        local hook_radius = 5
         love.graphics.circle('fill', screen_pos.x, screen_pos.y, hook_radius)
-
     end
 end
 

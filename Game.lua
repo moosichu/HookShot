@@ -7,12 +7,21 @@ local Player = require("Player")
 local world = require("world")
 
 function Game:New()
-    self.input_names = {'space'}
+    self.players_initialise = {
+        {
+            control = 'lshift',
+            start_pos = Vector(3, 5)
+        },
+        {
+            control = 'space',
+            start_pos = Vector(world.width - 3, 5)
+        }
+    }
 
     self.players = {}
     self.inputs = {}
-    for index, input in pairs(self.input_names) do
-        self.players[index] = Player:New(Vector(world.width / 2, world.height / 2))
+    for index, player_initialise in pairs(self.players_initialise) do
+        self.players[index] = Player:New(player_initialise.start_pos)
 
         self.inputs[index] = {}
         self.inputs[index].action_down = false
@@ -28,7 +37,7 @@ end
 function Game:Update(dt)
     for index, player in pairs(self.players) do
         local input = self.inputs[index]
-        local input_action = love.keyboard.isDown(self.input_names[index])
+        local input_action = love.keyboard.isDown(self.players_initialise[index].control)
         input.action_down = false
         input.action_up = false
 

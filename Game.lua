@@ -15,7 +15,7 @@ function Game:ResetLevel()
     self.inputs = {}
     self.state = Game.STATE_PLAYING
     for index, player_initialise in pairs(self.players_initialise) do
-        self.player_characters[index] = Player:New(player_initialise.start_pos, player_initialise.sprite)
+        self.player_characters[index] = Player:New(player_initialise.start_pos, player_initialise.sprite, love.audio.newSource("music/lasershot.wav", "static"))
 
         self.inputs[index] = {}
         self.inputs[index].action_down = false
@@ -31,6 +31,7 @@ function Game:New()
 
 
     self.music = love.audio.newSource("music/background.wav", "static")
+    self.music:setLooping(true)
     love.audio.play(self.music)
 
     love.graphics.setBackgroundColor(.1, .05, .2)
@@ -71,7 +72,6 @@ function Game:Update(dt)
                     if (killing_hookshot_position - dying_player_position).length2 < collision_radii2 then
                         self.state = Game.STATE_KILL_OCCURED
                         self.player_scores[kill_index] = self.player_scores[kill_index] + 1
-                        print("Player " .. tostring(kill_index) .. " Killed Player " .. tostring(death_index) .. " died, score = " .. tostring(self.player_scores[kill_index]))
                     end
                 end
             end
@@ -98,8 +98,10 @@ function Game:Update(dt)
 end
 
 function Game:Draw()
-    for _, player in pairs(self.player_characters) do
+    for index, player in pairs(self.player_characters) do
         player:Draw()
+        local SCORE_DISTANCE = 15
+        love.graphics.print("Player " .. tostring(index) .. " Score: " .. tostring(self.player_scores[index]), 5, 5 + ((index - 1) * SCORE_DISTANCE))
     end
 
     world.DrawGround()

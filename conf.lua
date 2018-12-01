@@ -4,5 +4,5 @@ function love.conf(t)
     --t.window.icon = "images/icon.png"
     t.window.width = 960
     t.window.height = 540
-    t.console = true
+    t.console = false
 end

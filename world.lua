@@ -11,7 +11,7 @@ world.height = 18
 world.pixelsize = 30
 
 -- floor height in metres
-world.floor_height = 4
+world.floor_height = 2
 
 world.drawn_before = false
 

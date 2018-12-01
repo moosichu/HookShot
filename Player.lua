@@ -9,9 +9,9 @@ Player.STATE_FIRING = 2
 Player.STATE_RETRACT_ATTACH = 3
 Player.STATE_RETRACT_DETACH = 4
 
-local HOOK_ROTATION_SPEED = 9
+local HOOK_ROTATION_SPEED = 7
 local HOOK_PLAYER_DISTANCE = 0.7
-local HOOK_INITIAL_VELOCITY = 20
+local HOOK_MAX_INITIAL_VELOCITY = 17
 
 local CHARGE_SLOWDOWN = 0.2
 
@@ -19,10 +19,13 @@ local RETRACT_ACCELERATION = 20
 
 local PLAYER_GRAVITY = 12.81
 
+local CHARGE_TIME = 0.5
+local AIM_TIME = 1.5
+
 Player.PLAYER_COLLISION_RADIUS = 15 / world.pixelsize
 Player.HOOKSHOT_COLLISION_RADIUS = 5 / world.pixelsize
 
-function Player:New(--[[required]]position, --[[require]]sprite)
+function Player:New(--[[required]]position, --[[require]]sprite, lasershot)
     instance = {}
     setmetatable(instance, self)
     self.__index = self
@@ -36,6 +39,8 @@ function Player:New(--[[required]]position, --[[require]]sprite)
     instance.hookshot_velocity = Vector(0, 0)
     instance.hookshot_position = Vector(0, 0)
     instance.sprite = sprite
+    instance.lasershot = lasershot
+    instance.charge_timer = 0
     return instance
 end
 
@@ -64,26 +69,41 @@ end
 
 
 function Player:_ApplyGroundFriction(dt)
-    self.velocity.x = self.velocity.x * 0.2 * dt
+    local FRICTION_AMOUNT = 10
+    if self.velocity.x > 0 then
+        self.velocity.x = self.velocity.x - (FRICTION_AMOUNT * dt)
+        if self.velocity.x < 0 then
+            self.velocity.x = 0
+        end
+    elseif self.velocity.x < 0 then
+        self.velocity.x = self.velocity.x + (FRICTION_AMOUNT * dt)
+        if self.velocity.x > 0 then
+            self.velocity.x = 0
+        end
+
+    end
 end
 
 function Player:_HandleHookShotOutOfBounds()
-    local bBelowGround = self.hookshot_position.y < world.floor_height + Player.HOOKSHOT_COLLISION_RADIUS
+    local bOutOfBounds = self.hookshot_position.y < world.floor_height + Player.HOOKSHOT_COLLISION_RADIUS
 
-    if bBelowGround then
-        self.hookshot_velocity = Vector(0, 0)
+    if bOutOfBounds then
         self.hookshot_position.y = world.floor_height + Player.HOOKSHOT_COLLISION_RADIUS
+        self.hookshot_velocity.y = self.hookshot_velocity.y * -0.7
+        bOutOfBounds = false
     end
 
     if self.hookshot_position.x > world.width then
-        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_velocity = Vector(-0.01, 0)
         self.hookshot_position.x = world.width - Player.HOOKSHOT_COLLISION_RADIUS
+        bOutOfBounds = true
     elseif self.hookshot_position.x < 0 then
-        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_velocity = Vector(0.01, 0)
         self.hookshot_position.x = Player.HOOKSHOT_COLLISION_RADIUS
+        bOutOfBounds = true
     end
 
-    return bBelowGround
+    return bOutOfBounds
 end
 
 function Player:_Collisions(dt)
@@ -113,15 +133,22 @@ function Player:_InitialHookshotDirection()
     )
 end
 
+function Player:_CalculateBestAngle()
+    local normalVector = (self.hookshot_position - self.position).normalized
+    self.hookshot_angle = math.atan2(normalVector.y, normalVector.x)
+end
+
 function Player:Update(dt, input)
     self.in_air = self:_AboveGround()
 
     self:_Collisions(dt)
 
     if self.state == Player.STATE_MOVING_PREP then
+        self.charge_timer = 0
         if input.action_down then
             -- CHARGE WEAPON
             self.state = Player.STATE_CHARGE
+            love.audio.play(self.lasershot)
         else
             self:_ApplyVelocity(dt)
             self:_ApplyGravity(dt)
@@ -129,13 +156,20 @@ function Player:Update(dt, input)
             self.hookshot_position = (HOOK_PLAYER_DISTANCE * self:_InitialHookshotDirection()) + self.position
         end
     elseif self.state == Player.STATE_CHARGE then
-        if input.action_up then
+        self.charge_timer = self.charge_timer + dt
+        if input.action_up or (self.charge_timer > AIM_TIME) then
             self.state = Player.STATE_FIRING
-            self.hookshot_velocity = self:_InitialHookshotDirection() * HOOK_INITIAL_VELOCITY
+            love.audio.stop(self.lasershot)
+            if self.charge_timer > CHARGE_TIME then self.charge_timer = CHARGE_TIME end
+            local charge_factor = self.charge_timer / CHARGE_TIME
+            charge_factor = charge_factor * charge_factor * charge_factor
+            self.hookshot_velocity = self:_InitialHookshotDirection() * HOOK_MAX_INITIAL_VELOCITY * (0.5 + (charge_factor / 2))
             self.hookshot_velocity = self.hookshot_velocity + self.velocity
+            self.velocity = (self.hookshot_velocity * -0.5) + self.velocity
+            self.charge_timer = 1
         else
             -- TODO: ACTUALLY CHARGE WEAPONS!
-            self:_ApplyVelocity(dt)
+            self:_ApplyVelocity(dt * 0.1)
             self:_ApplyGravity(dt)
             self.hookshot_angle = (self.hookshot_angle + (HOOK_ROTATION_SPEED * dt * CHARGE_SLOWDOWN)) % (math.pi * 2)
             self.hookshot_position = (HOOK_PLAYER_DISTANCE * self:_InitialHookshotDirection()) + self.position
@@ -159,6 +193,7 @@ function Player:Update(dt, input)
         local displacement = self.hookshot_position - self.position
         if displacement.length2 < HOOK_PLAYER_DISTANCE then
             self.state = Player.STATE_MOVING_PREP
+            self:_CalculateBestAngle()
         elseif input.action_up then
             self.state = Player.STATE_RETRACT_DETACH
         else
@@ -170,6 +205,7 @@ function Player:Update(dt, input)
         local displacement = self.position - self.hookshot_position
         if displacement.length2 < HOOK_PLAYER_DISTANCE then
             self.state = Player.STATE_MOVING_PREP
+            self:_CalculateBestAngle()
         elseif input.action_down then
             self.state = Player.STATE_RETRACT_ATTACH
         else
@@ -200,7 +236,16 @@ function Player:Draw()
         local draw_hook_position = self.hookshot_position
         local screen_pos = world.ToScreen(draw_hook_position)
         local hook_radius = Player.HOOKSHOT_COLLISION_RADIUS * world.pixelsize
+        local r, g, b, a = love.graphics.getColor()
+        local charge_factor = self.charge_timer / CHARGE_TIME
+        charge_factor = charge_factor * charge_factor * charge_factor
+        if self.state == Player.STATE_RETRACT_ATTACH then
+            love.graphics.setColor(1, 0, 1)
+        else
+            love.graphics.setColor(1, charge_factor, 0)
+        end
         love.graphics.circle('fill', screen_pos.x, screen_pos.y, hook_radius)
+        love.graphics.setColor(r, g, b, a)
     end
 end
 

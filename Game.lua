@@ -15,7 +15,7 @@ function Game:ResetLevel()
     self.inputs = {}
     self.state = Game.STATE_PLAYING
     for index, player_initialise in pairs(self.players_initialise) do
-        self.player_characters[index] = Player:New(player_initialise.start_pos)
+        self.player_characters[index] = Player:New(player_initialise.start_pos, player_initialise.sprite)
 
         self.inputs[index] = {}
         self.inputs[index].action_down = false
@@ -29,18 +29,24 @@ function Game:New()
     setmetatable(instance, self)
     self.__index = self
 
+
+    self.music = love.audio.newSource("music/background.wav", "static")
+    love.audio.play(self.music)
+
+    love.graphics.setBackgroundColor(.1, .05, .2)
+
     self.players_initialise = {
         {
-            control = 'lshift',
-            start_pos = Vector(3, 5)
+            control = 'lctrl',
+            start_pos = Vector(3, 5),
+            sprite = love.graphics.newImage("images/player1.png")
         },
         {
             control = 'space',
-            start_pos = Vector(world.width - 3, 5)
+            start_pos = Vector(world.width - 3, 5),
+            sprite = love.graphics.newImage("images/player2.png")
         }
     }
-
-
     self.player_scores = {}
     for index, player_initialise in pairs(self.players_initialise) do
         self.player_scores[index] = 0
@@ -65,7 +71,7 @@ function Game:Update(dt)
                     if (killing_hookshot_position - dying_player_position).length2 < collision_radii2 then
                         self.state = Game.STATE_KILL_OCCURED
                         self.player_scores[kill_index] = self.player_scores[kill_index] + 1
-                        print("Player " .. tostring(death_index) .. " died, score = " .. tostring(self.player_scores[kill_index]))
+                        print("Player " .. tostring(kill_index) .. " Killed Player " .. tostring(death_index) .. " died, score = " .. tostring(self.player_scores[kill_index]))
                     end
                 end
             end

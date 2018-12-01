@@ -10,19 +10,19 @@ Player.STATE_RETRACT_ATTACH = 3
 Player.STATE_RETRACT_DETACH = 4
 
 local HOOK_ROTATION_SPEED = 9
-local HOOK_PLAYER_DISTANCE = 0.5
+local HOOK_PLAYER_DISTANCE = 0.7
 local HOOK_INITIAL_VELOCITY = 20
 
 local CHARGE_SLOWDOWN = 0.2
 
 local RETRACT_ACCELERATION = 20
 
-local PLAYER_GRAVITY = 9.81
+local PLAYER_GRAVITY = 12.81
 
-Player.PLAYER_COLLISION_RADIUS = 7.5 / world.pixelsize
+Player.PLAYER_COLLISION_RADIUS = 15 / world.pixelsize
 Player.HOOKSHOT_COLLISION_RADIUS = 5 / world.pixelsize
 
-function Player:New(--[[required]]position)
+function Player:New(--[[required]]position, --[[require]]sprite)
     instance = {}
     setmetatable(instance, self)
     self.__index = self
@@ -35,6 +35,7 @@ function Player:New(--[[required]]position)
     instance.in_air = false
     instance.hookshot_velocity = Vector(0, 0)
     instance.hookshot_position = Vector(0, 0)
+    instance.sprite = sprite
     return instance
 end
 
@@ -176,7 +177,7 @@ function Player:Update(dt, input)
             self:_ApplyVelocity(dt)
             self:_ApplyGravity(dt)
             self:_ApplyHookVelocity(dt)
-            self.hookshot_velocity = normal * 10
+            self.hookshot_velocity = normal * 20
         end
     else
         Assert(false, "Unhandled Player State")
@@ -187,7 +188,11 @@ function Player:Draw()
     -- Draw Player
     do
         local screen_pos = world.ToScreen(self.position)
-        love.graphics.circle('fill', screen_pos.x, screen_pos.y, Player.PLAYER_COLLISION_RADIUS * world.pixelsize)
+        love.graphics.draw(
+            self.sprite,
+            screen_pos.x - 15,
+            screen_pos.y - 15
+        )
     end
 
     -- Draw Player Hook

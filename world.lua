@@ -13,10 +13,29 @@ world.pixelsize = 30
 -- floor height in metres
 world.floor_height = 4
 
+world.drawn_before = false
+
+world.pillar_tops = "images/pillar_tops.png"
+world.pillars = "images/pillars.png"
+
 function world.DrawGround()
-    local floor_position = Vector(0, world.floor_height)
-    floor_position = world.ToScreen(floor_position.copy)
-    love.graphics.line(0, floor_position.y, love.graphics.getWidth(), floor_position.y)
+    if not world.drawn_before then
+        world.drawn_before = true
+        world.pillar_tops = love.graphics.newImage(world.pillar_tops)
+        world.pillars = love.graphics.newImage(world.pillars)
+    end
+
+    for i = 0, world.width, 1 do
+        love.graphics.draw(world.pillar_tops, world.pixelsize * i, love.graphics.getHeight() - (world.pixelsize * (world.floor_height + 0.5)))
+    end
+
+
+
+    for i = 0, world.width, 1 do
+        for j = 1, world.floor_height, 1 do
+            love.graphics.draw(world.pillars, world.pixelsize * i, love.graphics.getHeight() - (world.pixelsize * (j - 0.5)))
+        end
+    end
 end
 
 function world.ToScreen(position)

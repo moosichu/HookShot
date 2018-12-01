@@ -70,8 +70,12 @@ function Game:Update(dt)
                     local killing_hookshot_position = player_maybe_killing.hookshot_position
                     local dying_player_position = player_maybe_dying.position
                     if (killing_hookshot_position - dying_player_position).length2 < collision_radii2 then
-                        self.state = Game.STATE_KILL_OCCURED
-                        self.player_scores[kill_index] = self.player_scores[kill_index] + 1
+                        if
+                            player_maybe_killing.state == Player.STATE_FIRING
+                        then
+                            self.state = Game.STATE_KILL_OCCURED
+                            self.player_scores[kill_index] = self.player_scores[kill_index] + 1
+                        end
                     end
                 end
             end

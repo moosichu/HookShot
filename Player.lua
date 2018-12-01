@@ -23,6 +23,8 @@ local PLAYER_SLOWDOWN_WHEN_CHARGING = 0.1
 local CHARGE_TIME = 0.5
 local AIM_TIME = 1.5
 
+local PLAYER_AIR_RESISTANCE = .5
+
 Player.PLAYER_COLLISION_RADIUS = 15 / world.pixelsize
 Player.HOOKSHOT_COLLISION_RADIUS = 5 / world.pixelsize
 
@@ -53,6 +55,7 @@ end
 
 function Player:_ApplyVelocity(dt)
     self.position = self.position + (self.velocity * dt)
+    self.velocity = self.velocity - (dt * PLAYER_AIR_RESISTANCE * self.velocity)
 end
 
 
@@ -62,6 +65,7 @@ end
 
 function Player:_ApplyHookVelocity(dt)
     self.hookshot_position = self.hookshot_position + (self.hookshot_velocity * dt)
+    self.hookshot_velocity = self.hookshot_velocity - (dt * PLAYER_AIR_RESISTANCE * self.hookshot_velocity)
 end
 
 function Player:_AboveGround()
@@ -241,10 +245,14 @@ function Player:Draw()
         local r, g, b, a = love.graphics.getColor()
         local charge_factor = self.charge_timer / CHARGE_TIME
         charge_factor = charge_factor * charge_factor * charge_factor
-        if self.state == Player.STATE_RETRACT_ATTACH then
-            love.graphics.setColor(1, 0, 1)
+        if self.state == Player.STATE_CHARGE then
+            love.graphics.setColor(.9, charge_factor * .9, 0.2)
+        elseif self.state == Player.STATE_FIRING then
+            love.graphics.setColor(.9, .9, 0.2)
+        elseif self.state == Player.STATE_RETRACT_ATTACH then
+            love.graphics.setColor(.9, 0, .9)
         else
-            love.graphics.setColor(1, charge_factor, 0)
+            love.graphics.setColor(.0, .9, .9)
         end
         love.graphics.circle('fill', screen_pos.x, screen_pos.y, hook_radius)
         love.graphics.setColor(r, g, b, a)

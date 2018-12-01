@@ -11,17 +11,28 @@ Player.STATE_RETRACT_DETACH = 4
 
 local HOOK_ROTATION_SPEED = 9
 local HOOK_PLAYER_DISTANCE = 0.5
+local HOOK_INITIAL_VELOCITY = 20
+
+local CHARGE_SLOWDOWN = 0.2
+
+local RETRACT_ACCELERATION = 20
 
 local PLAYER_GRAVITY = 9.81
 
 function Player:New(--[[required]]position)
+    instance = {}
+    setmetatable(instance, self)
+    self.__index = self
+
     Assert(position, "Player Must Have a position")
-    self.position = position.copy
-    self.velocity = Vector(0, 0)
-    self.state = Player.STATE_MOVING_PREP
-    self.hookshot_angle = 0
-    self.in_air = false
-    return self
+    instance.position = position.copy
+    instance.velocity = Vector(0, 0)
+    instance.state = Player.STATE_MOVING_PREP
+    instance.hookshot_angle = 0
+    instance.in_air = false
+    instance.hookshot_velocity = Vector(0, 0)
+    instance.hookshot_position = Vector(0, 0)
+    return instance
 end
 
 function Player:_ApplyGravity(dt)
@@ -34,16 +45,59 @@ function Player:_ApplyVelocity(dt)
     self.position = self.position + (self.velocity * dt)
 end
 
+
+function Player:_ApplyHookGravity(dt)
+    self.hookshot_velocity.y = self.hookshot_velocity.y - (PLAYER_GRAVITY * dt)
+end
+
+function Player:_ApplyHookVelocity(dt)
+    self.hookshot_position = self.hookshot_position + (self.hookshot_velocity * dt)
+end
+
 function Player:_AboveGround()
     return self.position.y > world.floor_height
 end
 
-function Player:_CollideGround()
+function Player:_HandleHookShotOutOfBounds()
+    local bBelowGround = self.hookshot_position.y < world.floor_height
+
+    if bBelowGround then
+        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_position.y = world.floor_height
+    end
+
+    if self.hookshot_position.x > world.width then
+        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_position.x = world.width
+    elseif self.hookshot_position.x < 0 then
+        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_position.x = 0
+    end
+
+    return bBelowGround
+end
+
+function Player:_ApplyGroundFriction(dt)
+    self.velocity.x = self.velocity.x * 0.2 * dt
+end
+
+function Player:_Collisions(dt)
     if not self.in_air then
         self.position.y = world.floor_height
         if self.velocity.y < 0 then
             self.velocity.y = 0
         end
+        self:_ApplyGroundFriction(dt)
+    end
+
+    if self.position.x > world.width then
+        self.position.x = world.width
+        self.velocity.x = 0
+    end
+
+    if self.position.x < 0 then
+        self.position.x = 0
+        self.velocity.x = 0
     end
 end
 
@@ -57,46 +111,68 @@ end
 function Player:Update(dt, input)
     self.in_air = self:_AboveGround()
 
-    self:_CollideGround()
+    self:_Collisions(dt)
 
     if self.state == Player.STATE_MOVING_PREP then
         if input.action_down then
-            -- FIRE WEAPON
+            -- CHARGE WEAPON
             self.state = Player.STATE_CHARGE
         else
-            self.hookshot_angle = (self.hookshot_angle + (HOOK_ROTATION_SPEED * dt)) % (math.pi * 2)
             self:_ApplyVelocity(dt)
             self:_ApplyGravity(dt)
+            self.hookshot_angle = (self.hookshot_angle + (HOOK_ROTATION_SPEED * dt)) % (math.pi * 2)
+            self.hookshot_position = (HOOK_PLAYER_DISTANCE * self:_InitialHookshotDirection()) + self.position
         end
     elseif self.state == Player.STATE_CHARGE then
         if input.action_up then
-            --
-
-
             self.state = Player.STATE_FIRING
+            self.hookshot_velocity = self:_InitialHookshotDirection() * HOOK_INITIAL_VELOCITY
+            self.hookshot_velocity = self.hookshot_velocity + self.velocity
         else
-
+            -- TODO: ACTUALLY CHARGE WEAPONS!
+            self:_ApplyVelocity(dt)
+            self:_ApplyGravity(dt)
+            self.hookshot_angle = (self.hookshot_angle + (HOOK_ROTATION_SPEED * dt * CHARGE_SLOWDOWN)) % (math.pi * 2)
+            self.hookshot_position = (HOOK_PLAYER_DISTANCE * self:_InitialHookshotDirection()) + self.position
         end
     elseif self.state == Player.STATE_FIRING then
+
         if input.action_down then
-
+            self.hookshot_velocity = Vector(0, 0)
             self.state = Player.STATE_RETRACT_ATTACH
-        else
-
-        end
-    elseif self.state == Player.STATE_RETRACT_ATTACH then
-        if input.action_up then
-
+            self:_HandleHookShotOutOfBounds()
+        elseif self:_HandleHookShotOutOfBounds() then
             self.state = Player.STATE_RETRACT_DETACH
         else
+            self:_ApplyVelocity(dt)
+            self:_ApplyGravity(dt)
 
+            self:_ApplyHookVelocity(dt)
+            self:_ApplyHookGravity(dt)
+        end
+    elseif self.state == Player.STATE_RETRACT_ATTACH then
+        local displacement = self.hookshot_position - self.position
+        if displacement.length2 < HOOK_PLAYER_DISTANCE then
+            self.state = Player.STATE_MOVING_PREP
+        elseif input.action_up then
+            self.state = Player.STATE_RETRACT_DETACH
+        else
+            local normal = displacement.normalized
+            self.velocity = self.velocity + ((RETRACT_ACCELERATION * dt) * normal)
+            self:_ApplyVelocity(dt)
         end
     elseif self.state == Player.STATE_RETRACT_DETACH then
-        if input.action_down then
-
-            self.state = Player.STATE_CHARGE
+        local displacement = self.position - self.hookshot_position
+        if displacement.length2 < HOOK_PLAYER_DISTANCE then
+            self.state = Player.STATE_MOVING_PREP
+        elseif input.action_down then
+            self.state = Player.STATE_RETRACT_ATTACH
         else
-
+            local normal = displacement.normalized
+            self:_ApplyVelocity(dt)
+            self:_ApplyGravity(dt)
+            self:_ApplyHookVelocity(dt)
+            self.hookshot_velocity = normal * 10
         end
     else
         Assert(false, "Unhandled Player State")
@@ -107,17 +183,12 @@ function Player:Draw()
     -- Draw Player
     do
         local screen_pos = world.ToScreen(self.position)
-        love.graphics.rectangle('fill', screen_pos.x, screen_pos.y - 10, 10, 10)
+        love.graphics.rectangle('fill', screen_pos.x - 5, screen_pos.y - 5, 10, 10)
     end
 
     -- Draw Player Hook
     do
-        local draw_hook_position = Vector(0, 0)
-        if self.state == Player.STATE_MOVING_PREP then
-            draw_hook_position = (HOOK_PLAYER_DISTANCE * self:_InitialHookshotDirection()) + self.position
-        end
-
-
+        local draw_hook_position = self.hookshot_position
         local screen_pos = world.ToScreen(draw_hook_position)
         local hook_radius = 2.5
         love.graphics.circle('fill', screen_pos.x, screen_pos.y, hook_radius)

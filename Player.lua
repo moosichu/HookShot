@@ -11,7 +11,7 @@ Player.STATE_RETRACT_DETACH = 4
 
 local HOOK_ROTATION_SPEED = 7
 local HOOK_PLAYER_DISTANCE = 0.7
-local HOOK_MAX_INITIAL_VELOCITY = 17
+local HOOK_MAX_INITIAL_VELOCITY = 25
 
 local CHARGE_SLOWDOWN = 0.2
 
@@ -44,6 +44,7 @@ function Player:New(--[[required]]position, --[[require]]sprite, lasershot)
     instance.sprite = sprite
     instance.lasershot = lasershot
     instance.charge_timer = 0
+    instance.dead = false
     return instance
 end
 
@@ -230,11 +231,16 @@ function Player:Draw()
     -- Draw Player
     do
         local screen_pos = world.ToScreen(self.position)
+        local r, g, b, a = love.graphics.getColor()
+        if self.dead == true then
+            love.graphics.setColor(0.3, 0.2, 0.2)
+        end
         love.graphics.draw(
             self.sprite,
             screen_pos.x - 15,
             screen_pos.y - 15
         )
+        love.graphics.setColor(r, g, b, a)
     end
 
     -- Draw Player Hook

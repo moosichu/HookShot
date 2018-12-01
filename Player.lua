@@ -18,6 +18,7 @@ local CHARGE_SLOWDOWN = 0.2
 local RETRACT_ACCELERATION = 20
 
 local PLAYER_GRAVITY = 12.81
+local PLAYER_SLOWDOWN_WHEN_CHARGING = 0.1
 
 local CHARGE_TIME = 0.5
 local AIM_TIME = 1.5
@@ -149,6 +150,7 @@ function Player:Update(dt, input)
             -- CHARGE WEAPON
             self.state = Player.STATE_CHARGE
             love.audio.play(self.lasershot)
+            self.velocity = self.velocity * PLAYER_SLOWDOWN_WHEN_CHARGING
         else
             self:_ApplyVelocity(dt)
             self:_ApplyGravity(dt)
@@ -164,13 +166,13 @@ function Player:Update(dt, input)
             local charge_factor = self.charge_timer / CHARGE_TIME
             charge_factor = charge_factor * charge_factor * charge_factor
             self.hookshot_velocity = self:_InitialHookshotDirection() * HOOK_MAX_INITIAL_VELOCITY * (0.5 + (charge_factor / 2))
-            self.hookshot_velocity = self.hookshot_velocity + self.velocity
+            self.hookshot_velocity = self.hookshot_velocity + (self.velocity)
             self.velocity = (self.hookshot_velocity * -0.5) + self.velocity
             self.charge_timer = 1
         else
             -- TODO: ACTUALLY CHARGE WEAPONS!
-            self:_ApplyVelocity(dt * 0.1)
-            self:_ApplyGravity(dt)
+            self:_ApplyVelocity(dt)
+            self:_ApplyGravity(dt * PLAYER_SLOWDOWN_WHEN_CHARGING)
             self.hookshot_angle = (self.hookshot_angle + (HOOK_ROTATION_SPEED * dt * CHARGE_SLOWDOWN)) % (math.pi * 2)
             self.hookshot_position = (HOOK_PLAYER_DISTANCE * self:_InitialHookshotDirection()) + self.position
         end

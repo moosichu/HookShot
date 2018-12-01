@@ -31,7 +31,9 @@ function love.draw()
     end
 end
 
-
 function love.update(dt)
     game_instance:Update(dt)
+    if game_instance.state == Game.STATE_KILL_OCCURED then
+        game_instance:ResetLevel()
+    end
 end

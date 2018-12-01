@@ -35,6 +35,10 @@ function Game:New()
 end
 
 function Game:Update(dt)
+    for _, player in pairs(self.players) do
+
+    end
+
     for index, player in pairs(self.players) do
         local input = self.inputs[index]
         local input_action = love.keyboard.isDown(self.players_initialise[index].control)

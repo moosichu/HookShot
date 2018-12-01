@@ -19,6 +19,9 @@ local RETRACT_ACCELERATION = 20
 
 local PLAYER_GRAVITY = 9.81
 
+local PLAYER_COLLISION_RADIUS = 7.5 / world.pixelsize
+local HOOKSHOT_COLLISION_RADIUS = 5 / world.pixelsize
+
 function Player:New(--[[required]]position)
     instance = {}
     setmetatable(instance, self)
@@ -55,48 +58,49 @@ function Player:_ApplyHookVelocity(dt)
 end
 
 function Player:_AboveGround()
-    return self.position.y > world.floor_height
+    return self.position.y > world.floor_height + PLAYER_COLLISION_RADIUS
 end
 
-function Player:_HandleHookShotOutOfBounds()
-    local bBelowGround = self.hookshot_position.y < world.floor_height
-
-    if bBelowGround then
-        self.hookshot_velocity = Vector(0, 0)
-        self.hookshot_position.y = world.floor_height
-    end
-
-    if self.hookshot_position.x > world.width then
-        self.hookshot_velocity = Vector(0, 0)
-        self.hookshot_position.x = world.width
-    elseif self.hookshot_position.x < 0 then
-        self.hookshot_velocity = Vector(0, 0)
-        self.hookshot_position.x = 0
-    end
-
-    return bBelowGround
-end
 
 function Player:_ApplyGroundFriction(dt)
     self.velocity.x = self.velocity.x * 0.2 * dt
 end
 
+function Player:_HandleHookShotOutOfBounds()
+    local bBelowGround = self.hookshot_position.y < world.floor_height + HOOKSHOT_COLLISION_RADIUS
+
+    if bBelowGround then
+        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_position.y = world.floor_height + HOOKSHOT_COLLISION_RADIUS
+    end
+
+    if self.hookshot_position.x > world.width then
+        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_position.x = world.width - HOOKSHOT_COLLISION_RADIUS
+    elseif self.hookshot_position.x < 0 then
+        self.hookshot_velocity = Vector(0, 0)
+        self.hookshot_position.x = HOOKSHOT_COLLISION_RADIUS
+    end
+
+    return bBelowGround
+end
+
 function Player:_Collisions(dt)
     if not self.in_air then
-        self.position.y = world.floor_height
+        self.position.y = world.floor_height + PLAYER_COLLISION_RADIUS
         if self.velocity.y < 0 then
             self.velocity.y = 0
         end
         self:_ApplyGroundFriction(dt)
     end
 
-    if self.position.x > world.width then
-        self.position.x = world.width
+    if self.position.x + PLAYER_COLLISION_RADIUS > world.width then
+        self.position.x = world.width - PLAYER_COLLISION_RADIUS
         self.velocity.x = 0
     end
 
-    if self.position.x < 0 then
-        self.position.x = 0
+    if self.position.x - PLAYER_COLLISION_RADIUS < 0 then
+        self.position.x = PLAYER_COLLISION_RADIUS
         self.velocity.x = 0
     end
 end
@@ -183,14 +187,14 @@ function Player:Draw()
     -- Draw Player
     do
         local screen_pos = world.ToScreen(self.position)
-        love.graphics.rectangle('fill', screen_pos.x - 5, screen_pos.y - 5, 15, 15)
+        love.graphics.circle('fill', screen_pos.x, screen_pos.y, PLAYER_COLLISION_RADIUS * world.pixelsize)
     end
 
     -- Draw Player Hook
     do
         local draw_hook_position = self.hookshot_position
         local screen_pos = world.ToScreen(draw_hook_position)
-        local hook_radius = 5
+        local hook_radius = HOOKSHOT_COLLISION_RADIUS * world.pixelsize
         love.graphics.circle('fill', screen_pos.x, screen_pos.y, hook_radius)
     end
 end

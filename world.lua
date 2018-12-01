@@ -8,6 +8,8 @@ local world = {}
 world.width = 32
 world.height = 18
 
+world.pixelsize = 30
+
 -- floor height in metres
 world.floor_height = 4
 

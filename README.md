@@ -1,5 +1,8 @@
 # HookShot
 
+![hookshot gif](images/hookshot.gif)
+
+
 ## Download
 
   - [Windows Executable](https://github.com/moosichu/HookShot/releases/download/1.0.0/HookShot-Windows.zip)
@@ -33,5 +36,3 @@ This is two player game, where each player controls one button.
 - Player 2 uses `Return`
 
 You want to hit the other player with your spinning orb while it's yellow.
-
-![screenshot](images/screenshot.png)
